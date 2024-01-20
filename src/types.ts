@@ -19,3 +19,8 @@ export interface Teacher {
   profilePicUrl: string;
   phoneNumber: string;
 }
+export interface Attendance {
+  numberOfWorkingDays: number;
+  numberOfDaysPresent: number;
+  numberOfDaysAbsent: number;
+}
