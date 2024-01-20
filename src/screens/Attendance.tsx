@@ -1,7 +1,16 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Button, Card, MD3Colors, ProgressBar, Text} from 'react-native-paper';
+import {
+  BottomNavigation,
+  Button,
+  Card,
+  MD3Colors,
+  ProgressBar,
+  Text,
+} from 'react-native-paper';
 import {attendance} from '../data/attendance';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const styles = StyleSheet.create({
   btn: {
     marginVertical: 20,
@@ -10,8 +19,30 @@ const styles = StyleSheet.create({
 export default function Attendance() {
   const [attendanceMarked, setAttendanceMarked] = useState(false);
   const [attended, setAttended] = useState(false);
+  const today = new Date();
+  const formattedDate = today.toISOString().split('T')[0];
+  const storagekey1 = `attendanceMarked${formattedDate}`;
+  const storagekey2 = `attended${formattedDate}`;
+  async function loadAttendance() {
+    const value = await AsyncStorage.getItem(storagekey1);
+    console.log('value', value);
+    if (value !== null) {
+      setAttendanceMarked(JSON.parse(value));
+    }
+    const value2 = await AsyncStorage.getItem(storagekey2);
+    console.log('value2', value2);
+    if (value2 !== null) {
+      setAttended(JSON.parse(value2));
+    }
+  }
 
-  const handleAttendance = (didAttend: boolean) => {
+  useEffect(() => {
+    loadAttendance();
+  }, []);
+
+  const handleAttendance = async (didAttend: boolean) => {
+    await AsyncStorage.setItem(storagekey1, JSON.stringify(true));
+    await AsyncStorage.setItem(storagekey2, JSON.stringify(didAttend));
     setAttendanceMarked(true);
     setAttended(didAttend);
   };
