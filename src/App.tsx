@@ -8,8 +8,10 @@ export default function App() {
 
   return (
     <PaperProvider>
-      <View>
-        <Button onPress={incrementCount}>Hey</Button>
+      <View className="m-4 border rounded">
+        <Button onPress={incrementCount} mode="contained">
+          Hey
+        </Button>
         <Text>{count}</Text>
       </View>
     </PaperProvider>
