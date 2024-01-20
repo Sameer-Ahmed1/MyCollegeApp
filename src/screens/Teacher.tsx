@@ -38,8 +38,9 @@ export default function Teacher() {
     <View className="mx-4 mt-4 flex-1 space-y-4">
       <Searchbar
         placeholder="Search"
-        onChangeText={setSearchQuery}
         value={searchQuery}
+        onChangeText={setSearchQuery}
+        clearButtonMode="unless-editing"
       />
       <FlatList
         data={searchResultItems.length === 0 ? teachers : searchResultItems}
