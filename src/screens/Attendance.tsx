@@ -1,24 +1,12 @@
 import {useEffect, useState} from 'react';
-import {StyleSheet, View} from 'react-native';
-import {
-  BottomNavigation,
-  Button,
-  Card,
-  MD3Colors,
-  ProgressBar,
-  Text,
-} from 'react-native-paper';
+import {StyleSheet, View, Pressable, Animated} from 'react-native';
+import {Card, MD3Colors, ProgressBar, Text} from 'react-native-paper';
 import {attendance} from '../data/attendance';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const styles = StyleSheet.create({
-  btn: {
-    marginVertical: 20,
-  },
-});
 export default function Attendance() {
-  const [attendanceMarked, setAttendanceMarked] = useState(false);
-  const [attended, setAttended] = useState(false);
+  const [attendanceMarked, setAttendanceMarked] = useState(true);
+  const [attended, setAttended] = useState(true);
   const today = new Date();
   const formattedDate = today.toISOString().split('T')[0];
   const storagekey1 = `attendanceMarked${formattedDate}`;
@@ -33,19 +21,41 @@ export default function Attendance() {
     console.log('value2', value2);
     if (value2 !== null) {
       setAttended(JSON.parse(value2));
+      if (!JSON.parse(value2)) {
+        moveRight(1);
+      }
     }
   }
-
-  useEffect(() => {
-    loadAttendance();
-  }, []);
-
-  const handleAttendance = async (didAttend: boolean) => {
+  const value = useState(new Animated.Value(0))[0];
+  const handleToggle = async (didAttend: boolean) => {
+    if (didAttend) {
+      moveLeft();
+    } else {
+      moveRight();
+    }
     await AsyncStorage.setItem(storagekey1, JSON.stringify(true));
     await AsyncStorage.setItem(storagekey2, JSON.stringify(didAttend));
     setAttendanceMarked(true);
     setAttended(didAttend);
   };
+  const moveLeft = (duration = 500) => {
+    Animated.timing(value, {
+      toValue: 0,
+      duration: duration,
+      useNativeDriver: false,
+    }).start();
+  };
+  const moveRight = (duration = 500) => {
+    Animated.timing(value, {
+      toValue: 175,
+      duration: duration,
+      useNativeDriver: false,
+    }).start();
+  };
+  useEffect(() => {
+    loadAttendance();
+  }, []);
+
   const totalDays =
     attendance.numberOfDaysPresent + attendance.numberOfDaysAbsent;
   const remainingDays = attendance.numberOfWorkingDays - totalDays;
@@ -58,35 +68,58 @@ export default function Attendance() {
 
   return (
     <View>
-      <Text className="text-black text-2xl text-center">
+      <Text className="text-black text-2xl text-center pt-4 pb-4  mt-4 mb-4 bg-gray-200">
         Did you go to college today?
       </Text>
-      <View className="flex flex-row justify-center gap-x-5 pt-10 px-4">
-        <Button
-          disabled={attendanceMarked}
-          contentStyle={styles.btn}
-          className=" flex-1 text-2xl"
-          mode="contained"
-          onPress={() => handleAttendance(true)}>
-          <Text className="text-2xl">Yes</Text>
-        </Button>
-        <Button
-          disabled={attendanceMarked}
-          contentStyle={styles.btn}
-          className=" flex-1 text-2xl"
-          mode="elevated"
-          onPress={() => handleAttendance(false)}>
-          <Text className="text-2xl">No</Text>
-        </Button>
+      <View
+        style={[
+          {
+            marginHorizontal: 20,
+            marginVertical: 10,
+            width: 350,
+            height: 104,
+          },
+        ]}
+        className="flex border-2 rounded-lg bg-white-300  shadow-lg">
+        <Pressable
+          onPress={() => handleToggle(true)}
+          style={{position: 'absolute', zIndex: 5, height: 100, width: 175}}>
+          <View>
+            <Text className="text-5xl ml-3 mt-6">Yes</Text>
+          </View>
+        </Pressable>
+        {attendanceMarked && (
+          <Animated.View
+            style={[
+              {
+                width: 175,
+                height: 100,
+
+                marginLeft: value,
+              },
+            ]}
+            className="rounded-lg bg-purple-400"></Animated.View>
+        )}
+        <Pressable
+          onPress={() => handleToggle(false)}
+          style={{
+            position: 'absolute',
+            zIndex: 5,
+            marginLeft: 175,
+            height: 100,
+            width: 175,
+          }}>
+          <View>
+            <Text className="text-5xl ml-3 mt-6">No</Text>
+          </View>
+        </Pressable>
       </View>
-      <Text className="pl-3 pt-4 text-2xl text-center">
-        {attendanceMarked
-          ? attended
-            ? 'You have attended the class'
-            : 'You have not attended the class'
-          : 'You have not marked your attendance'}
-      </Text>
-      <Card className="mt-4">
+      {!attendanceMarked && (
+        <Text className="pl-3 pt-4 text-2xl text-center">
+          You have not marked your attendance'
+        </Text>
+      )}
+      <Card className="mt-4 mx-4">
         <Card.Title title={`Attendance stats`} />
         <Card.Content>
           <Text variant="titleLarge">{`Attendance: ${attendancePercentage.toFixed(
@@ -101,7 +134,7 @@ export default function Attendance() {
           <Text variant="bodyMedium">{`Number of days present: ${attendance.numberOfDaysPresent}`}</Text>
         </Card.Content>
       </Card>
-      <Card className="mt-4">
+      <Card className="mt-4 mx-4">
         <Card.Content>
           <Text variant="titleLarge">
             {daysCanBeAbsent <= 0
