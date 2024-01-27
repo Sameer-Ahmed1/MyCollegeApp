@@ -1,31 +1,112 @@
 import {useEffect, useState} from 'react';
 import {StyleSheet, View, Pressable, Animated} from 'react-native';
-import {Card, MD3Colors, ProgressBar, Text} from 'react-native-paper';
+import {
+  Card,
+  IconButton,
+  MD3Colors,
+  ProgressBar,
+  Text,
+  TextInput,
+} from 'react-native-paper';
 import {attendance} from '../data/attendance';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {AttendanceData} from '../types';
 
 export default function Attendance() {
-  const [attendanceMarked, setAttendanceMarked] = useState(true);
+  const [attendanceMarked, setAttendanceMarked] = useState(false);
+  const [attendanceArray, setAttendanceArray] = useState<AttendanceData[]>([]);
+  const [attendancePercentage, setAttendancePercentage] = useState(0);
+  const [daysCanBeAbsent, setDaysCanBeAbsent] = useState(0);
   const [attended, setAttended] = useState(true);
+
   const today = new Date();
   const formattedDate = today.toISOString().split('T')[0];
-  const storagekey1 = `attendanceMarked${formattedDate}`;
-  const storagekey2 = `attended${formattedDate}`;
-  async function loadAttendance() {
-    const value = await AsyncStorage.getItem(storagekey1);
-    console.log('value', value);
-    if (value !== null) {
-      setAttendanceMarked(JSON.parse(value));
-    }
-    const value2 = await AsyncStorage.getItem(storagekey2);
-    console.log('value2', value2);
-    if (value2 !== null) {
-      setAttended(JSON.parse(value2));
-      if (!JSON.parse(value2)) {
-        moveRight(1);
+  const storageKey = 'attendanceArrayKey';
+  let startDate = new Date(2024, 0, 1);
+  const totalWorkingDays = calculateWorkingDays(startDate);
+
+  function calculateWorkingDays(startDate: Date) {
+    let endDate = new Date();
+    let totalWorkingDaysValue = 0;
+
+    for (let day = startDate; day <= endDate; day.setDate(day.getDate() + 1)) {
+      let dayOfWeek = day.getDay();
+      if (dayOfWeek != 0 && dayOfWeek != 6) {
+        // 0: Sunday, 6: Saturday
+        totalWorkingDaysValue++;
       }
     }
+    return totalWorkingDaysValue;
   }
+
+  async function loadAttendance() {
+    try {
+      const storageContent = await AsyncStorage.getItem(storageKey);
+      if (storageContent !== null) {
+        const attendanceArrayValue = JSON.parse(storageContent);
+        calculatePercentage(attendanceArrayValue);
+        setAttendanceArray(attendanceArrayValue);
+        const todayAttendance = attendanceArrayValue.find(
+          (item: AttendanceData) => item.date === formattedDate,
+        );
+        if (todayAttendance) {
+          setAttendanceMarked(true);
+          setAttended(todayAttendance.attended);
+          if (todayAttendance.attended) {
+            moveLeft(0);
+          } else {
+            moveRight(0);
+          }
+        }
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  }
+  function calculatePercentage(array: AttendanceData[]) {
+    if (totalWorkingDays > 0) {
+      const attendedDays = array.filter(item => item.attended).length;
+      const percentage = (attendedDays / totalWorkingDays) * 100;
+      const remainingDays = attendance.numberOfWorkingDays - totalWorkingDays;
+      const daysAbsent = totalWorkingDays - attendedDays;
+      const maxDaysCanBeAbsent = Math.floor(
+        attendance.numberOfWorkingDays * 0.25,
+      );
+      console.log('maxDaysCanBeAbsent', maxDaysCanBeAbsent);
+      const daysCanBeAbsentValue =
+        remainingDays <= maxDaysCanBeAbsent - daysAbsent
+          ? remainingDays
+          : maxDaysCanBeAbsent - daysAbsent;
+      setAttendancePercentage(percentage);
+      setDaysCanBeAbsent(daysCanBeAbsentValue);
+    }
+  }
+  async function markAttendance(isAttended: boolean) {
+    try {
+      let newArray: AttendanceData[] = [...attendanceArray];
+      const todayIndex = newArray.findIndex(
+        item => item.date === formattedDate,
+      );
+      if (todayIndex >= 0) {
+        newArray[todayIndex] = {date: formattedDate, attended: isAttended};
+      } else {
+        newArray = [...newArray, {date: formattedDate, attended: isAttended}];
+      }
+      await AsyncStorage.setItem(storageKey, JSON.stringify(newArray));
+      setAttendanceArray(newArray);
+      calculatePercentage(newArray);
+      setAttendanceMarked(true);
+      setAttended(isAttended);
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  useEffect(() => {
+    loadAttendance();
+  }, []);
+
+  /*.....................Animation...............................*/
   const value = useState(new Animated.Value(0))[0];
   const handleToggle = async (didAttend: boolean) => {
     if (didAttend) {
@@ -33,10 +114,7 @@ export default function Attendance() {
     } else {
       moveRight();
     }
-    await AsyncStorage.setItem(storagekey1, JSON.stringify(true));
-    await AsyncStorage.setItem(storagekey2, JSON.stringify(didAttend));
-    setAttendanceMarked(true);
-    setAttended(didAttend);
+    markAttendance(didAttend);
   };
   const moveLeft = (duration = 500) => {
     Animated.timing(value, {
@@ -52,19 +130,6 @@ export default function Attendance() {
       useNativeDriver: false,
     }).start();
   };
-  useEffect(() => {
-    loadAttendance();
-  }, []);
-
-  const totalDays =
-    attendance.numberOfDaysPresent + attendance.numberOfDaysAbsent;
-  const remainingDays = attendance.numberOfWorkingDays - totalDays;
-
-  const attendancePercentage =
-    (attendance.numberOfDaysPresent / totalDays) * 100;
-  const maxDaysCanBeAbsent = Math.floor(attendance.numberOfWorkingDays * 0.25);
-  const daysCanBeAbsent =
-    remainingDays <= maxDaysCanBeAbsent ? remainingDays : maxDaysCanBeAbsent;
 
   return (
     <View>
@@ -125,13 +190,13 @@ export default function Attendance() {
           <Text variant="titleLarge">{`Attendance: ${attendancePercentage.toFixed(
             2,
           )}%`}</Text>
-          <ProgressBar
+          {/* <ProgressBar
             className=" mr-2"
             progress={attendancePercentage * 0.01}
             color={MD3Colors.primary20}
             style={{height: 7}}
-          />
-          <Text variant="bodyMedium">{`Number of days present: ${attendance.numberOfDaysPresent}`}</Text>
+          /> */}
+          <Text variant="bodyMedium">{`Total working days: ${totalWorkingDays}`}</Text>
         </Card.Content>
       </Card>
       <Card className="mt-4 mx-4">

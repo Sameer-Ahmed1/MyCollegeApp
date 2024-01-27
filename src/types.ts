@@ -44,3 +44,7 @@ export interface Attendance {
   numberOfDaysPresent: number;
   numberOfDaysAbsent: number;
 }
+export interface AttendanceData {
+  attended: boolean;
+  date: string;
+}
