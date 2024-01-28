@@ -1,28 +1,22 @@
 import {useEffect, useState} from 'react';
 import {StyleSheet, View, Pressable, Animated} from 'react-native';
-import {
-  Card,
-  IconButton,
-  MD3Colors,
-  ProgressBar,
-  Text,
-  TextInput,
-} from 'react-native-paper';
+import {Card, IconButton, MD3Colors, Text, TextInput} from 'react-native-paper';
 import {attendance} from '../data/attendance';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {AttendanceData} from '../types';
+import * as Progress from 'react-native-progress';
 
 export default function Attendance() {
   const [attendanceMarked, setAttendanceMarked] = useState(false);
   const [attendanceArray, setAttendanceArray] = useState<AttendanceData[]>([]);
-  const [attendancePercentage, setAttendancePercentage] = useState(0);
-  const [daysCanBeAbsent, setDaysCanBeAbsent] = useState(0);
-  const [attended, setAttended] = useState(true);
+  const [attendancePercentage, setAttendancePercentage] = useState<number>(0);
+  const [daysCanBeAbsent, setDaysCanBeAbsent] = useState<number>(0);
+  const [attended, setAttended] = useState<boolean>(true);
 
   const today = new Date();
   const formattedDate = today.toISOString().split('T')[0];
   const storageKey = 'attendanceArrayKey';
-  let startDate = new Date(2024, 0, 1);
+  const startDate = new Date(2024, 0, 1);
   const totalWorkingDays = calculateWorkingDays(startDate);
 
   function calculateWorkingDays(startDate: Date) {
@@ -44,6 +38,7 @@ export default function Attendance() {
       const storageContent = await AsyncStorage.getItem(storageKey);
       if (storageContent !== null) {
         const attendanceArrayValue = JSON.parse(storageContent);
+
         calculatePercentage(attendanceArrayValue);
         setAttendanceArray(attendanceArrayValue);
         const todayAttendance = attendanceArrayValue.find(
@@ -72,7 +67,6 @@ export default function Attendance() {
       const maxDaysCanBeAbsent = Math.floor(
         attendance.numberOfWorkingDays * 0.25,
       );
-      console.log('maxDaysCanBeAbsent', maxDaysCanBeAbsent);
       const daysCanBeAbsentValue =
         remainingDays <= maxDaysCanBeAbsent - daysAbsent
           ? remainingDays
@@ -107,6 +101,7 @@ export default function Attendance() {
   }, []);
 
   /*.....................Animation...............................*/
+  const animatedParentViewWidth = 350;
   const value = useState(new Animated.Value(0))[0];
   const handleToggle = async (didAttend: boolean) => {
     if (didAttend) {
@@ -116,66 +111,71 @@ export default function Attendance() {
     }
     markAttendance(didAttend);
   };
-  const moveLeft = (duration = 500) => {
+  const moveLeft = (duration = 400) => {
     Animated.timing(value, {
       toValue: 0,
       duration: duration,
       useNativeDriver: false,
     }).start();
   };
-  const moveRight = (duration = 500) => {
+  const moveRight = (duration = 400) => {
     Animated.timing(value, {
-      toValue: 175,
+      toValue: animatedParentViewWidth / 2,
       duration: duration,
       useNativeDriver: false,
     }).start();
   };
-
   return (
     <View>
       <Text className="text-black text-2xl text-center pt-4 pb-4  mt-4 mb-4 bg-gray-200">
         Did you go to college today?
       </Text>
       <View
+        className="flex rounded-lg bg-gray-300  shadow-lg"
         style={[
           {
             marginHorizontal: 20,
             marginVertical: 10,
-            width: 350,
+            width: animatedParentViewWidth,
             height: 104,
           },
-        ]}
-        className="flex border-2 rounded-lg bg-white-300  shadow-lg">
+        ]}>
         <Pressable
           onPress={() => handleToggle(true)}
-          style={{position: 'absolute', zIndex: 5, height: 100, width: 175}}>
+          style={{
+            position: 'absolute',
+            zIndex: 5,
+            height: 100,
+            width: animatedParentViewWidth / 2,
+          }}>
           <View>
-            <Text className="text-5xl ml-3 mt-6">Yes</Text>
+            <Text className="text-5xl text-center mt-6">Yes</Text>
           </View>
         </Pressable>
         {attendanceMarked && (
           <Animated.View
             style={[
               {
-                width: 175,
+                width: animatedParentViewWidth / 2,
                 height: 100,
-
                 marginLeft: value,
               },
             ]}
-            className="rounded-lg bg-purple-400"></Animated.View>
+            className={
+              'rounded-lg ' + (attended ? 'bg-green-400' : 'bg-red-400')
+            }></Animated.View>
         )}
         <Pressable
           onPress={() => handleToggle(false)}
           style={{
             position: 'absolute',
             zIndex: 5,
-            marginLeft: 175,
+            marginLeft: animatedParentViewWidth / 2,
             height: 100,
-            width: 175,
+            width: animatedParentViewWidth / 2,
           }}>
           <View>
-            <Text className="text-5xl ml-3 mt-6">No</Text>
+            <Text className="text-5xl text-center mt-6">No</Text>
           </View>
         </Pressable>
       </View>
@@ -184,27 +184,26 @@ export default function Attendance() {
           You have not marked your attendance'
         </Text>
       )}
-      <Card className="mt-4 mx-4">
-        <Card.Title title={`Attendance stats`} />
+      <Card className="flex flex-col justify-center  items-center mt-4 mx-4">
+        <Card.Title title={`Attendance percentage`} />
         <Card.Content>
-          <Text variant="titleLarge">{`Attendance: ${attendancePercentage.toFixed(
-            2,
-          )}%`}</Text>
-          {/* <ProgressBar
-            className=" mr-2"
-            progress={attendancePercentage * 0.01}
-            color={MD3Colors.primary20}
-            style={{height: 7}}
-          /> */}
-          <Text variant="bodyMedium">{`Total working days: ${totalWorkingDays}`}</Text>
+          <Progress.Circle
+            size={200}
+            showsText={true}
+            progress={attendancePercentage / 100}
+          />
+          <Text className="mx-6 my-4" variant="bodyLarge">
+            {`Total working days: ${totalWorkingDays}`}
+          </Text>
         </Card.Content>
       </Card>
+
       <Card className="mt-4 mx-4">
         <Card.Content>
           <Text variant="titleLarge">
             {daysCanBeAbsent <= 0
               ? 'You cannot be absent anymore without falling below 75% attendance'
-              : `You can be absent for ${daysCanBeAbsent} more day(s) without falling below 75% attendance`}
+              : `You can be absent for ${daysCanBeAbsent} more days without falling below 75% attendance`}
           </Text>
         </Card.Content>
       </Card>
