@@ -1,39 +1,35 @@
 import {useEffect, useState} from 'react';
-import {StyleSheet, View, Pressable, Animated} from 'react-native';
-import {
-  Button,
-  Card,
-  IconButton,
-  MD3Colors,
-  Modal,
-  Text,
-  TextInput,
-} from 'react-native-paper';
-import {attendance} from '../data/attendance';
+import {View, Pressable, Animated, ScrollView} from 'react-native';
+import {Button, Card, Modal, Text, TextInput} from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {AttendanceData} from '../types';
 import * as Progress from 'react-native-progress';
 
 export default function Attendance() {
   const [attendanceMarked, setAttendanceMarked] = useState(false);
-  const [attendanceArray, setAttendanceArray] = useState<AttendanceData[]>([]);
+  const [attendanceData, setAttendanceData] = useState<AttendanceData>({
+    numberOfDaysPresent: 0,
+    numberOfDaysAbsent: 0,
+  });
   const [attendancePercentage, setAttendancePercentage] = useState<number>(0);
   const [daysCanBeAbsent, setDaysCanBeAbsent] = useState<number>(0);
-  const [attended, setAttended] = useState<boolean>(true);
+  const [attended, setAttended] = useState<boolean>(false);
   const [absentAdded, setAbsentAdded] = useState<boolean>(false);
   const [absentDays, setAbsentDays] = useState<number>(0);
   const [modalVisible, setModalVisible] = useState(false);
 
   const today = new Date();
-  const formattedDate = today.toISOString().split('T')[0];
-  const storageKey = 'attendanceArrayKey';
-  const startDate = new Date(2024, 0, 1);
-  const totalWorkingDays = calculateWorkingDays(startDate);
+  const todayDate = new Date().toISOString().split('T')[0];
+  const storageKey1 = 'attendanceArrayKey';
+  const storageKey2 = `attended${todayDate}`;
+  const storageKey3 = `absentAdded`;
+  const academicStartDate = new Date(2024, 0, 1);
+  const academicDuration = 300;
+  const totalWorkingDays = calculateWorkingDays(academicStartDate);
 
   function calculateWorkingDays(startDate: Date) {
     let endDate = new Date();
     let totalWorkingDaysValue = 0;
-
     for (let day = startDate; day <= endDate; day.setDate(day.getDate() + 1)) {
       let dayOfWeek = day.getDay();
       if (dayOfWeek != 0 && dayOfWeek != 6) {
@@ -46,25 +42,22 @@ export default function Attendance() {
 
   async function loadAttendance() {
     try {
-      const storageContent = await AsyncStorage.getItem(storageKey);
-      if (storageContent !== null) {
-        const attendanceArrayValue = JSON.parse(storageContent);
-        calculatePercentage(attendanceArrayValue);
-        setAttendanceArray(attendanceArrayValue);
-        const todayAttendance = attendanceArrayValue.find(
-          (item: AttendanceData) => item.date === formattedDate,
-        );
-        if (todayAttendance) {
+      const attendanceDataContent = await AsyncStorage.getItem(storageKey1);
+      if (attendanceDataContent !== null) {
+        const attendanceDataValue = JSON.parse(attendanceDataContent);
+        setAttendanceData(attendanceDataValue);
+        const attendedToday = await AsyncStorage.getItem(storageKey2);
+        if (attendedToday !== null) {
+          setAttended(JSON.parse(attendedToday));
           setAttendanceMarked(true);
-          setAttended(todayAttendance.attended);
-          if (todayAttendance.attended) {
+          if (JSON.parse(attendedToday)) {
             moveLeft(0);
           } else {
             moveRight(0);
           }
         }
       }
-      const absentStorageContent = await AsyncStorage.getItem('absentAdded');
+      const absentStorageContent = await AsyncStorage.getItem(storageKey3);
       if (absentStorageContent !== null) {
         setAbsentAdded(JSON.parse(absentStorageContent));
       }
@@ -72,42 +65,35 @@ export default function Attendance() {
       console.log(e);
     }
   }
-  function calculatePercentage(array: AttendanceData[]) {
-    if (totalWorkingDays > 0) {
-      let attendedDays = array.filter(item => item.attended).length;
-      const totalMarked = array.length;
-      if (absentAdded && totalMarked < totalWorkingDays) {
-        attendedDays += totalWorkingDays - totalMarked - absentDays;
-      }
-      const percentage = (attendedDays / totalWorkingDays) * 100;
-      const remainingDays = attendance.numberOfWorkingDays - totalWorkingDays;
-      const daysAbsent = totalWorkingDays - attendedDays;
-      const maxDaysCanBeAbsent = Math.floor(
-        attendance.numberOfWorkingDays * 0.25,
-      );
-      const daysCanBeAbsentValue =
-        remainingDays <= maxDaysCanBeAbsent - daysAbsent
-          ? remainingDays
-          : maxDaysCanBeAbsent - daysAbsent;
-      setAttendancePercentage(percentage);
-      setDaysCanBeAbsent(daysCanBeAbsentValue);
-    }
-  }
+
   async function markAttendance(isAttended: boolean) {
     try {
-      let newArray: AttendanceData[] = [...attendanceArray];
-      console.log(newArray);
-      const todayIndex = newArray.findIndex(
-        item => item.date === formattedDate,
+      let attendanceDataCopy: AttendanceData = JSON.parse(
+        JSON.stringify(attendanceData),
       );
-      if (todayIndex >= 0) {
-        newArray[todayIndex] = {date: formattedDate, attended: isAttended};
+      if (!attendanceMarked) {
+        if (isAttended) {
+          attendanceDataCopy.numberOfDaysPresent++;
+        } else {
+          attendanceDataCopy.numberOfDaysAbsent++;
+        }
       } else {
-        newArray = [...newArray, {date: formattedDate, attended: isAttended}];
+        if (attended !== isAttended) {
+          if (attended && !isAttended) {
+            attendanceDataCopy.numberOfDaysPresent--;
+            attendanceDataCopy.numberOfDaysAbsent++;
+          } else if (!attended && isAttended) {
+            attendanceDataCopy.numberOfDaysPresent++;
+            attendanceDataCopy.numberOfDaysAbsent--;
+          }
+        }
       }
-      await AsyncStorage.setItem(storageKey, JSON.stringify(newArray));
-      setAttendanceArray(newArray);
-      calculatePercentage(newArray);
+      await AsyncStorage.setItem(
+        storageKey1,
+        JSON.stringify(attendanceDataCopy),
+      );
+      await AsyncStorage.setItem(storageKey2, JSON.stringify(isAttended));
+      setAttendanceData(attendanceDataCopy);
       setAttendanceMarked(true);
       setAttended(isAttended);
     } catch (e) {
@@ -115,17 +101,23 @@ export default function Attendance() {
     }
   }
   async function addAbsentDays() {
-    let newArray = [...attendanceArray];
-    const attendedDays = newArray.filter(item => item.attended).length;
-    if (absentDays <= totalWorkingDays - attendedDays) {
-      for (let i = 0; i < absentDays; i++) {
-        newArray.push({date: '2000-01-01', attended: false});
-      }
+    let attendanceDataCopy: AttendanceData = JSON.parse(
+      JSON.stringify(attendanceData),
+    );
+    const totalMarked =
+      attendanceDataCopy.numberOfDaysPresent +
+      attendanceDataCopy.numberOfDaysAbsent;
+    if (absentDays <= totalWorkingDays - totalMarked) {
+      const attendedDays = totalWorkingDays - totalMarked - absentDays;
+      attendanceDataCopy.numberOfDaysPresent += attendedDays;
+      attendanceDataCopy.numberOfDaysAbsent += absentDays;
       try {
-        await AsyncStorage.setItem(storageKey, JSON.stringify(newArray));
-        setAttendanceArray(newArray);
-        calculatePercentage(newArray);
-        await AsyncStorage.setItem('absentAdded', JSON.stringify(true));
+        await AsyncStorage.setItem(
+          storageKey1,
+          JSON.stringify(attendanceDataCopy),
+        );
+        setAttendanceData(attendanceDataCopy);
+        await AsyncStorage.setItem(storageKey3, JSON.stringify(true));
         setAbsentAdded(true);
       } catch (e) {
         console.log(e);
@@ -133,22 +125,55 @@ export default function Attendance() {
     }
   }
 
+  function calculatePercentage() {
+    if (totalWorkingDays > 0) {
+      let attendedDays = attendanceData.numberOfDaysPresent;
+      const absentDays = attendanceData.numberOfDaysAbsent;
+      const totalMarked = attendedDays + absentDays;
+      attendedDays += totalWorkingDays - totalMarked; //if there are any days that are not marked then consider them present
+      const attendancePercentageValue = (attendedDays / totalWorkingDays) * 100;
+      const remainingDays = academicDuration - totalWorkingDays;
+      const maxDaysCanBeAbsent = Math.floor(academicDuration * 0.25);
+      const daysCanBeAbsentValue =
+        remainingDays <= maxDaysCanBeAbsent - absentDays
+          ? remainingDays
+          : maxDaysCanBeAbsent - absentDays;
+      setAttendancePercentage(attendancePercentageValue);
+      setDaysCanBeAbsent(daysCanBeAbsentValue);
+    }
+  }
+
   useEffect(() => {
     loadAttendance();
   }, []);
-
+  useEffect(() => {
+    if (attended) {
+      moveLeft();
+    } else {
+      moveRight();
+    }
+  }, [attended]);
+  useEffect(() => {
+    calculatePercentage();
+  }, [attendanceData]);
   const showModal = () => setModalVisible(true);
   const hideModal = () => setModalVisible(false);
+  async function clearStorage() {
+    const keys = [storageKey1, storageKey2, storageKey3];
+    try {
+      await AsyncStorage.multiRemove(keys);
+    } catch (e) {
+      console.log(e);
+    }
+
+    console.log('Done');
+  }
 
   /*.....................Animation...............................*/
   const animatedParentViewWidth = 350;
   const value = useState(new Animated.Value(0))[0];
   const handleToggle = async (didAttend: boolean) => {
-    if (didAttend) {
-      moveLeft();
-    } else {
-      moveRight();
-    }
+    // clearStorage(); //for testing only, do not uncomment
     markAttendance(didAttend);
   };
   const moveLeft = (duration = 400) => {
@@ -165,8 +190,18 @@ export default function Attendance() {
       useNativeDriver: false,
     }).start();
   };
+  console.log('totalWorkingDays', totalWorkingDays);
+
+  console.log(
+    'attendanceData.numberOfDaysAbsent',
+    attendanceData.numberOfDaysAbsent,
+  );
+  console.log(
+    'attendanceData.numberOfDaysPresent',
+    attendanceData.numberOfDaysPresent,
+  );
   return (
-    <View>
+    <ScrollView>
       <Text className="text-black text-2xl text-center pt-4 pb-4  mt-4 mb-4 bg-gray-200">
         Did you go to college today?
       </Text>
@@ -225,7 +260,7 @@ export default function Attendance() {
         </Text>
       )}
       <Card className="flex flex-col justify-center  items-center mt-4 mx-4">
-        <Card.Title title={`Attendance percentage`} />
+        <Card.Title className="pl-10" title={`Attendance percentage`} />
         <Card.Content>
           <Progress.Circle
             size={200}
@@ -233,16 +268,25 @@ export default function Attendance() {
             progress={attendancePercentage / 100}
             indeterminateAnimationDuration={1000}
           />
-          <Text className="mx-6 my-4" variant="bodyLarge">
+          <Text className="text-left mx-4 mt-4" variant="bodyLarge">
             {`Total working days: ${totalWorkingDays}`}
+          </Text>
+          <Text className="text-left mx-4 " variant="bodyLarge">
+            {`Total days present : ${attendanceData.numberOfDaysPresent}`}
+          </Text>
+          <Text className="text-left mx-4" variant="bodyLarge">
+            {`Total days absent: ${attendanceData.numberOfDaysAbsent}`}
           </Text>
         </Card.Content>
         <Card.Content className="flex justify-start ">
-          {!absentAdded && (
-            <Button icon="cog" onPress={showModal}>
-              Settings
-            </Button>
-          )}
+          {totalWorkingDays >
+            attendanceData.numberOfDaysAbsent +
+              attendanceData.numberOfDaysPresent &&
+            !absentAdded && (
+              <Button icon="cog" onPress={showModal}>
+                Settings
+              </Button>
+            )}
         </Card.Content>
       </Card>
 
@@ -273,7 +317,8 @@ export default function Attendance() {
         }}>
         <Text className="mx-4 mb-4" variant="bodyLarge">
           How many days you were absent before you started marking attendance in
-          this app?
+          this app? Note that this value cannot be changed later. Enter the
+          correct value or else it wont be recorded.
         </Text>
         <TextInput
           className="mb-4"
@@ -294,6 +339,6 @@ export default function Attendance() {
           Submit
         </Button>
       </Modal>
-    </View>
+    </ScrollView>
   );
 }
