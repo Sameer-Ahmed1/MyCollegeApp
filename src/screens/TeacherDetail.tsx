@@ -21,7 +21,12 @@ export default function TeacherDetail({route}: TeacherDetailNavigationProps) {
   return (
     <ScrollView className="flex-1 space-y-4">
       <View className="flex items-center my-8 space-y-4">
-        <Avatar.Image size={256} source={{uri: teacher.profilePicUrl}} />
+        <Avatar.Image
+          size={256}
+          source={{
+            uri: 'https://robohash.org/604b9d47-cf1f-4b95-9408-4a86ea1c6cc4',
+          }}
+        />
         <Text variant="headlineLarge">{teacher.name}</Text>
       </View>
       {/* Contact info */}

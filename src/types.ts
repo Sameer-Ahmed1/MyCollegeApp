@@ -29,7 +29,7 @@ export type TeacherDetailNavigationProps = NativeStackScreenProps<
 export interface Teacher {
   /* General */
   id: string;
-  profilePicUrl: string;
+  profilePicUrl?: string;
   name: string;
   /* About */
   department: string;

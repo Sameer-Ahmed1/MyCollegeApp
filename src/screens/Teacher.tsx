@@ -1,14 +1,14 @@
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import Fuse, {IFuseOptions} from 'fuse.js';
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {FlatList, ListRenderItemInfo, View} from 'react-native';
 import {Avatar, List, Searchbar} from 'react-native-paper';
-import {teachers} from '../data/teachers';
 import {
   RootStackParamList,
   TeacherNavigationProps,
   Teacher as TeacherT,
 } from '../types';
+import {fetchTeacher} from '../services/teachers';
 
 interface ListItemProps extends ListRenderItemInfo<TeacherT> {
   navigation: NativeStackNavigationProp<
@@ -17,7 +17,7 @@ interface ListItemProps extends ListRenderItemInfo<TeacherT> {
     undefined
   >;
 }
-
+const teachers = fetchTeacher();
 function ListItem(props: ListItemProps) {
   const teacher = props.item;
   return (
@@ -29,7 +29,9 @@ function ListItem(props: ListItemProps) {
       left={_ => (
         <Avatar.Image
           className="bg-white"
-          source={{uri: teacher.profilePicUrl}}
+          source={{
+            uri: 'https://robohash.org/604b9d47-cf1f-4b95-9408-4a86ea1c6cc4',
+          }}
         />
       )}
       onPress={() =>
@@ -41,14 +43,22 @@ function ListItem(props: ListItemProps) {
   );
 }
 
-const fuseOptions: IFuseOptions<TeacherT> = {
-  keys: ['name', 'department'],
-  shouldSort: true,
-};
-const fuse = new Fuse(teachers, fuseOptions);
-
 export default function Teacher({navigation}: TeacherNavigationProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [teachers, setTeachers] = useState<TeacherT[]>([]);
+  useEffect(() => {
+    fetchTeacher()
+      .then(teachers => setTeachers(teachers))
+      .catch(() => {
+        console.log('Error fetching teachers');
+      });
+  }, []);
+  const fuseOptions: IFuseOptions<TeacherT> = {
+    keys: ['name', 'department'],
+    shouldSort: true,
+  };
+  const fuse = new Fuse(teachers, fuseOptions);
+
   const searchResultItems: TeacherT[] = fuse
     .search(searchQuery)
     .map(r => r.item);
