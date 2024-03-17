@@ -1,6 +1,13 @@
 import {useEffect, useState} from 'react';
-import {View, Pressable, Animated, ScrollView} from 'react-native';
-import {Button, Card, Modal, Text, TextInput} from 'react-native-paper';
+import {View, Pressable, Animated, ScrollView, Alert} from 'react-native';
+import {
+  Button,
+  Card,
+  IconButton,
+  Modal,
+  Text,
+  TextInput,
+} from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {AttendanceData} from '../types';
 import * as Progress from 'react-native-progress';
@@ -23,8 +30,8 @@ export default function Attendance() {
   const storageKey1 = 'attendanceArrayKey';
   const storageKey2 = `attended${todayDate}`;
   const storageKey3 = `absentAdded`;
-  const academicStartDate = new Date(2024, 0, 1);
-  const academicDuration = 300;
+  const academicStartDate = new Date(2024, 1, 1);
+  const academicDuration = 95;
   const totalWorkingDays = calculateWorkingDays(academicStartDate);
 
   function calculateWorkingDays(startDate: Date) {
@@ -32,6 +39,7 @@ export default function Attendance() {
     let totalWorkingDaysValue = 0;
     for (let day = startDate; day <= endDate; day.setDate(day.getDate() + 1)) {
       let dayOfWeek = day.getDay();
+
       if (dayOfWeek != 0 && dayOfWeek != 6) {
         // 0: Sunday, 6: Saturday
         totalWorkingDaysValue++;
@@ -200,67 +208,116 @@ export default function Attendance() {
     'attendanceData.numberOfDaysPresent',
     attendanceData.numberOfDaysPresent,
   );
+  let day = today.getDay();
+  console.log('day', day);
   return (
     <ScrollView>
       <Text className="text-black text-2xl text-center pt-4 pb-4  mt-4 mb-4 bg-gray-200">
         Did you go to college today?
       </Text>
-      <View
-        className="flex rounded-lg bg-gray-300  shadow-lg"
-        style={[
-          {
-            marginHorizontal: 20,
-            marginVertical: 10,
-            width: animatedParentViewWidth,
-            height: 104,
-          },
-        ]}>
-        <Pressable
-          onPress={() => handleToggle(true)}
-          style={{
-            position: 'absolute',
-            zIndex: 5,
-            height: 100,
-            width: animatedParentViewWidth / 2,
-          }}>
-          <View>
-            <Text className="text-5xl text-center mt-6">Yes</Text>
-          </View>
-        </Pressable>
-        {attendanceMarked && (
-          <Animated.View
-            style={[
+      {/* <IconButton
+        icon="settings"
+        size={20}
+        onPress={() => {
+          Alert.alert(
+            'Reset Data',
+            'Are you sure you want to reset the data?',
+            [
               {
-                width: animatedParentViewWidth / 2,
-                height: 100,
-                marginLeft: value,
+                text: 'Cancel',
+                style: 'cancel',
               },
-            ]}
-            className={
-              'rounded-lg ' + (attended ? 'bg-green-400' : 'bg-red-400')
-            }></Animated.View>
-        )}
-        <Pressable
-          onPress={() => handleToggle(false)}
-          style={{
-            position: 'absolute',
-            zIndex: 5,
-            marginLeft: animatedParentViewWidth / 2,
-            height: 100,
-            width: animatedParentViewWidth / 2,
-          }}>
-          <View>
-            <Text className="text-5xl text-center mt-6">No</Text>
-          </View>
-        </Pressable>
-      </View>
-      {!attendanceMarked && (
+              {text: 'OK', onPress: () => clearStorage()},
+            ],
+            {cancelable: false},
+          );
+        }}
+      /> */}
+
+      {day === 0 || day === 6 ? (
+        <Text className="text-2xl text-center mt-4">Today is a holiday</Text>
+      ) : (
+        <View
+          className="flex rounded-lg bg-gray-300  shadow-lg"
+          style={[
+            {
+              marginHorizontal: 20,
+              marginVertical: 10,
+              width: animatedParentViewWidth,
+              height: 104,
+            },
+          ]}>
+          <Pressable
+            onPress={() => handleToggle(true)}
+            style={{
+              position: 'absolute',
+              zIndex: 5,
+              height: 100,
+              width: animatedParentViewWidth / 2,
+            }}>
+            <View>
+              <Text className="text-5xl text-center mt-6">Yes</Text>
+            </View>
+          </Pressable>
+          {attendanceMarked && (
+            <Animated.View
+              style={[
+                {
+                  width: animatedParentViewWidth / 2,
+                  height: 100,
+                  marginLeft: value,
+                },
+              ]}
+              className={
+                'rounded-lg ' + (attended ? 'bg-green-400' : 'bg-red-400')
+              }></Animated.View>
+          )}
+          <Pressable
+            onPress={() => handleToggle(false)}
+            style={{
+              position: 'absolute',
+              zIndex: 5,
+              marginLeft: animatedParentViewWidth / 2,
+              height: 100,
+              width: animatedParentViewWidth / 2,
+            }}>
+            <View>
+              <Text className="text-5xl text-center mt-6">No</Text>
+            </View>
+          </Pressable>
+        </View>
+      )}
+      {day !== 0 && day !== 6 && !attendanceMarked && (
         <Text className="pl-3 pt-4 text-2xl text-center">
           You have not marked your attendance'
         </Text>
       )}
-      <Card className="flex flex-col justify-center  items-center mt-4 mx-4">
-        <Card.Title className="pl-10" title={`Attendance percentage`} />
+      <Card className="flex flex-col justify-center  items-center mt-4 mx-4 ">
+        <Card.Title
+          className="pr-0"
+          title={`Attendance percentage`}
+          right={props => (
+            <IconButton
+              icon="delete"
+              size={20}
+              onPress={() => {
+                Alert.alert(
+                  'Reset Data',
+                  'Are you sure you want to reset the data?',
+                  [
+                    {
+                      text: 'Cancel',
+                      style: 'cancel',
+                    },
+                    {text: 'OK', onPress: () => clearStorage()},
+                  ],
+                  {cancelable: false},
+                );
+              }}
+            />
+          )}
+        />
+
         <Card.Content>
           <Progress.Circle
             size={200}
